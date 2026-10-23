@@ -4,11 +4,32 @@
     const CO2_KG_PER_KWH = 0.084;
     let selectedFile = null;
     let ocrTimer = null;
+    let latestBill = null;
+
+    function getActiveAccountId() {
+        try {
+            const session = JSON.parse(sessionStorage.getItem('ecoflow.session') || 'null');
+            if (!session || !session.authenticated || !session.type || !/^\d+$/.test(session.document || '')) return null;
+            return `${session.type}:${session.document}`;
+        } catch (error) {
+            console.error('Não foi possível identificar a conta ativa.', error);
+            return null;
+        }
+    }
+
+    function getStorageKey(accountId) {
+        return `${STORAGE_KEY}.${encodeURIComponent(accountId)}`;
+    }
 
     function readBills() {
+        const accountId = getActiveAccountId();
+        if (!accountId) return [];
+
         try {
-            const bills = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            return Array.isArray(bills) ? bills.filter((bill) => Number.isFinite(bill.consumption) && Number.isFinite(bill.amount)) : [];
+            const bills = JSON.parse(localStorage.getItem(getStorageKey(accountId)) || '[]');
+            return Array.isArray(bills)
+                ? bills.filter((bill) => bill.accountId === accountId && Number.isFinite(bill.consumption) && Number.isFinite(bill.amount))
+                : [];
         } catch (error) {
             console.error('Não foi possível ler as faturas salvas.', error);
             return [];
@@ -32,9 +53,11 @@
         const bills = readBills().sort((a, b) => b.month.localeCompare(a.month));
         const list = document.getElementById('billList');
         document.getElementById('billCount').textContent = String(bills.length);
+        updateConsumptionMetrics(bills);
+        latestBill = bills[0] || null;
         if (!bills.length) {
             list.innerHTML = '<p class="empty-state">Suas faturas salvas aparecerão aqui.</p>';
-            updateSavings(null);
+            updateSavings(latestBill);
             return;
         }
         list.innerHTML = bills.slice(0, 5).map((bill) => `
@@ -42,7 +65,31 @@
                 <div><strong>${escapeHtml(formatMonth(bill.month))}</strong><span>${bill.consumption.toLocaleString('pt-BR')} kWh${bill.fileName ? ` · ${escapeHtml(bill.fileName)}` : ''}</span></div>
                 <strong>${formatCurrency(bill.amount)}</strong>
             </article>`).join('');
-        updateSavings(bills[0]);
+        updateSavings(latestBill);
+    }
+
+    function updateConsumptionMetrics(bills) {
+        const values = bills.map((bill) => bill.consumption).sort((a, b) => a - b);
+        const total = values.reduce((sum, value) => sum + value, 0);
+        const average = values.length ? total / values.length : 0;
+        const middle = Math.floor(values.length / 2);
+        const median = values.length
+            ? values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2
+            : 0;
+        const frequencies = new Map();
+        values.forEach((value) => frequencies.set(value, (frequencies.get(value) || 0) + 1));
+        const highestFrequency = Math.max(0, ...frequencies.values());
+        const modes = highestFrequency > 1
+            ? [...frequencies.entries()].filter(([, frequency]) => frequency === highestFrequency).map(([value]) => value)
+            : [];
+        const formatKwh = (value) => `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kWh`;
+
+        document.getElementById('mediaConsumo').textContent = formatKwh(average);
+        document.getElementById('medianaConsumo').textContent = formatKwh(median);
+        document.getElementById('modaConsumo').textContent = modes.length
+            ? modes.map((value) => formatKwh(value)).join(' · ')
+            : 'Sem moda';
+        document.getElementById('totalConsumo').textContent = formatKwh(total);
     }
 
     function updateSavings(bill) {
@@ -64,7 +111,7 @@
         const savedCo2 = savedKwh * CO2_KG_PER_KWH;
         kwh.textContent = `${savedKwh.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kWh`;
         money.textContent = formatCurrency(savedMoney);
-        co2.textContent = `${savedCo2.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg`;
+        co2.textContent = `${savedCo2.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kg`;
         footnote.textContent = `Estimativa sobre ${formatMonth(bill.month)} · fator de referência: ${CO2_KG_PER_KWH} kg CO₂/kWh.`;
     }
 
@@ -90,27 +137,13 @@
         }, 850);
     }
 
-    async function syncConsumption(bill) {
-        try {
-            const response = await fetch(`${window.API_BASE_URL || 'http://localhost:5000/api'}/consumo`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ setor: 'Conta de luz', consumo: bill.consumption, data: `${bill.month}-01` })
-            });
-            if (!response.ok) throw new Error(`API respondeu com status ${response.status}.`);
-            return true;
-        } catch (error) {
-            console.warn('Fatura salva localmente; sincronização de consumo indisponível.', error);
-            return false;
-        }
-    }
-
     function init() {
         const form = document.getElementById('billForm');
         const fileInput = document.getElementById('billFile');
         const monthInput = document.getElementById('billMonth');
         monthInput.max = new Date().toISOString().slice(0, 7);
-        document.getElementById('reductionTarget').addEventListener('input', renderBills);
+        document.getElementById('reductionTarget').addEventListener('input', () => updateSavings(latestBill));
+        window.addEventListener('ecoflow:account-changed', renderBills);
 
         fileInput.addEventListener('change', () => {
             const file = fileInput.files && fileInput.files[0];
@@ -137,6 +170,11 @@
             const month = monthInput.value;
             const consumption = Number(document.getElementById('billConsumption').value);
             const amount = Number(document.getElementById('billAmount').value);
+            const accountId = getActiveAccountId();
+            if (!accountId) {
+                window.mostrarNotificacao('Entre na sua conta para cadastrar uma fatura.', 'error');
+                return;
+            }
             if (!/^\d{4}-\d{2}$/.test(month) || !Number.isFinite(consumption) || consumption <= 0 || !Number.isFinite(amount) || amount <= 0) {
                 window.mostrarNotificacao('Confira o mês, o consumo e o valor da fatura.', 'error');
                 return;
@@ -146,16 +184,15 @@
                 window.mostrarNotificacao('Já existe uma fatura cadastrada para este mês.', 'error');
                 return;
             }
-            const bill = { id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`, month, consumption, amount, fileName: selectedFile ? selectedFile.name : '', createdAt: new Date().toISOString() };
+            const bill = { id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`, accountId, month, consumption, amount, fileName: selectedFile ? selectedFile.name : '', createdAt: new Date().toISOString() };
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify([...bills, bill]));
+                localStorage.setItem(getStorageKey(accountId), JSON.stringify([...bills, bill]));
             } catch (error) {
                 window.mostrarNotificacao('Não foi possível salvar. Verifique o espaço disponível no navegador.', 'error');
                 return;
             }
             renderBills();
-            const synced = await syncConsumption(bill);
-            window.mostrarNotificacao(synced ? 'Fatura salva e consumo sincronizado.' : 'Fatura salva neste navegador. A API está indisponível; a sincronização ficou pendente.', synced ? 'success' : 'info');
+            window.mostrarNotificacao('Fatura salva nesta conta e neste navegador.', 'success');
             form.reset();
             selectedFile = null;
             document.getElementById('ocrStatus').textContent = '';

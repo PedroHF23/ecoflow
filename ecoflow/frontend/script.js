@@ -20,6 +20,10 @@ function mostrarNotificacao(mensagem, tipo = 'info') {
 
 // Dados em cache
 let dadosConsumoCacheado = [];
+let dadosRelatorioCacheados = [];
+let participacoesSetor = {};
+let contaPreferenciaSetor = null;
+let setoresPreferencia = [];
 
 /**
  * Função: Inicializar aplicação
@@ -43,6 +47,12 @@ function configurarEventos() {
             filtrarDadosTabela(e.target.value);
         });
     }
+
+    window.addEventListener('ecoflow:account-changed', () => {
+        carregarPreferenciasSetor(dadosRelatorioCacheados);
+        renderizarConfiguracaoSetor();
+        atualizarRelatoriosPersonalizados();
+    });
 }
 
 /**
@@ -65,8 +75,7 @@ async function carregarDados() {
         
         console.log('✓ Dados carregados:', dados);
         
-        // Atualizar interface
-        atualizarDashboard(dados);
+        // A visão geral é calculada a partir das faturas da conta ativa.
         preencherTabela(dados);
         gerarRelatorios(dados);
         
@@ -109,7 +118,6 @@ function usarDadosDemonstrativos() {
     ];
     
     dadosConsumoCacheado = dadosMock;
-    atualizarDashboard(dadosMock);
     preencherTabela(dadosMock);
     gerarRelatorios(dadosMock);
 }
@@ -252,8 +260,177 @@ function filtrarDadosTabela(filtro) {
  * @param {Array} dados - Array de registros
  */
 function gerarRelatorios(dados) {
+    dadosRelatorioCacheados = Array.isArray(dados) ? dados : [];
+    const accountId = obterContaAtivaId();
+    const setoresAtuais = obterSetores(dadosRelatorioCacheados);
+    const mesmoContexto = contaPreferenciaSetor === accountId
+        && setoresAtuais.length === setoresPreferencia.length
+        && setoresAtuais.every((setor, index) => setor === setoresPreferencia[index]);
+
+    if (!mesmoContexto) carregarPreferenciasSetor(dadosRelatorioCacheados);
+    renderizarConfiguracaoSetor();
     gerarGraficoDistribuicao(dados);
     gerarComparativoSetores(dados);
+}
+
+function obterContaAtivaId() {
+    try {
+        const session = JSON.parse(sessionStorage.getItem('ecoflow.session') || 'null');
+        if (!session || !session.authenticated || !session.type || !/^\d+$/.test(session.document || '')) return null;
+        return `${session.type}:${session.document}`;
+    } catch (error) {
+        console.error('Não foi possível identificar a conta para as preferências de relatório.', error);
+        return null;
+    }
+}
+
+function obterSetores(dados) {
+    return [...new Set(dados.map((item) => item.setor).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
+function obterPreferenciasKey(accountId) {
+    return `ecoflow.sector-splits.${encodeURIComponent(accountId)}`;
+}
+
+function criarDivisaoPadrao(dados, setores) {
+    if (!setores.length) return {};
+    const totais = Object.fromEntries(setores.map((setor) => [setor, 0]));
+    dados.forEach((item) => {
+        if (Object.hasOwn(totais, item.setor) && Number.isFinite(Number(item.consumo))) {
+            totais[item.setor] += Number(item.consumo);
+        }
+    });
+    const total = Object.values(totais).reduce((sum, value) => sum + value, 0);
+    const quotas = setores.map((setor) => total > 0 ? totais[setor] / total * 100 : 100 / setores.length);
+    const shares = quotas.map(Math.floor);
+    let remaining = 100 - shares.reduce((sum, value) => sum + value, 0);
+    const order = quotas.map((quota, index) => ({ index, remainder: quota - shares[index] }))
+        .sort((a, b) => b.remainder - a.remainder);
+    for (let index = 0; index < remaining; index += 1) shares[order[index].index] += 1;
+    return Object.fromEntries(setores.map((setor, index) => [setor, shares[index]]));
+}
+
+function carregarPreferenciasSetor(dados) {
+    const accountId = obterContaAtivaId();
+    setoresPreferencia = obterSetores(dados);
+    contaPreferenciaSetor = accountId;
+    const defaults = criarDivisaoPadrao(dados, setoresPreferencia);
+    participacoesSetor = defaults;
+
+    if (!accountId) return;
+    try {
+        const stored = JSON.parse(localStorage.getItem(obterPreferenciasKey(accountId)) || 'null');
+        if (!stored || setoresPreferencia.some((setor) => !Number.isInteger(stored[setor]) || stored[setor] < 0 || stored[setor] > 100)) return;
+        const sum = setoresPreferencia.reduce((total, setor) => total + stored[setor], 0);
+        if (sum === 100) participacoesSetor = Object.fromEntries(setoresPreferencia.map((setor) => [setor, stored[setor]]));
+    } catch (error) {
+        console.error('Não foi possível carregar a divisão personalizada.', error);
+    }
+}
+
+function renderizarConfiguracaoSetor() {
+    const controls = document.getElementById('sectorControls');
+    if (!controls) return;
+    controls.replaceChildren();
+
+    setoresPreferencia.forEach((setor, index) => {
+        const group = document.createElement('label');
+        group.className = 'sector-control';
+        group.htmlFor = `sectorShare${index}`;
+        const name = document.createElement('span');
+        name.className = 'sector-control-name';
+        name.textContent = setor;
+        const input = document.createElement('input');
+        input.className = 'sector-share-input';
+        input.id = `sectorShare${index}`;
+        input.type = 'number';
+        input.min = '0';
+        input.max = '100';
+        input.step = '1';
+        input.inputMode = 'numeric';
+        input.value = String(participacoesSetor[setor] ?? 0);
+        input.dataset.sectorIndex = String(index);
+        input.setAttribute('aria-label', `Participação percentual de ${setor}`);
+        const unit = document.createElement('span');
+        unit.className = 'sector-control-unit';
+        unit.textContent = '%';
+        group.append(name, input, unit);
+        controls.appendChild(group);
+        input.addEventListener('input', atualizarParticipacoesSetor);
+    });
+
+    atualizarSomaParticipacoes();
+}
+
+function atualizarSomaParticipacoes() {
+    const inputs = [...document.querySelectorAll('.sector-share-input')];
+    const total = inputs
+        .reduce((sum, input) => sum + (input.value === '' ? 0 : Number(input.value)), 0);
+    const totalElement = document.getElementById('sectorPercentageTotal');
+    const status = document.getElementById('sectorSettingsStatus');
+    const validInputs = inputs.length > 0 && inputs.every((input) => input.value !== ''
+        && Number.isInteger(Number(input.value))
+        && Number(input.value) >= 0
+        && Number(input.value) <= 100);
+    const valid = validInputs && total === 100;
+    totalElement.innerHTML = `Total <strong>${Number.isInteger(total) ? total : total.toFixed(1)}%</strong>`;
+    totalElement.classList.toggle('is-valid', valid);
+    totalElement.classList.toggle('is-invalid', !valid);
+    status.textContent = valid
+        ? 'Divisão aplicada e salva nesta conta.'
+        : `A soma atual é ${Number.isInteger(total) ? total : total.toFixed(1)}%. Preencha percentuais inteiros e ajuste até completar 100%.`;
+    status.classList.toggle('is-valid', valid);
+    status.classList.toggle('is-invalid', !valid);
+    return valid;
+}
+
+function atualizarParticipacoesSetor() {
+    const inputs = [...document.querySelectorAll('.sector-share-input')];
+    inputs.forEach((input) => {
+        const value = Number(input.value);
+        input.setAttribute('aria-invalid', String(input.value !== '' && (!Number.isInteger(value) || value < 0 || value > 100)));
+    });
+    if (!atualizarSomaParticipacoes()) return;
+
+    participacoesSetor = Object.fromEntries(inputs.map((input) => [
+        setoresPreferencia[Number(input.dataset.sectorIndex)], Number(input.value)
+    ]));
+    const accountId = obterContaAtivaId();
+    if (accountId) {
+        try {
+            localStorage.setItem(obterPreferenciasKey(accountId), JSON.stringify(participacoesSetor));
+        } catch (error) {
+            document.getElementById('sectorSettingsStatus').textContent = 'Divisão aplicada, mas não foi possível salvá-la neste navegador.';
+            console.error('Não foi possível salvar a divisão personalizada.', error);
+        }
+    }
+    atualizarRelatoriosPersonalizados();
+}
+
+function obterConsumoPersonalizado(dados) {
+    const totaisOriginais = Object.fromEntries(setoresPreferencia.map((setor) => [setor, 0]));
+    const contagens = Object.fromEntries(setoresPreferencia.map((setor) => [setor, 0]));
+    dados.forEach((item) => {
+        if (Object.hasOwn(totaisOriginais, item.setor) && Number.isFinite(Number(item.consumo))) {
+            totaisOriginais[item.setor] += Number(item.consumo);
+            contagens[item.setor] += 1;
+        }
+    });
+    const consumoTotal = Object.values(totaisOriginais).reduce((sum, value) => sum + value, 0);
+    return setoresPreferencia.map((setor) => {
+        const total = consumoTotal * (Number(participacoesSetor[setor] || 0) / 100);
+        return { setor, total, media: contagens[setor] ? total / contagens[setor] : 0, percentual: Number(participacoesSetor[setor] || 0) };
+    });
+}
+
+function atualizarRelatoriosPersonalizados() {
+    if (!dadosRelatorioCacheados.length) {
+        gerarGraficoDistribuicao([]);
+        gerarComparativoSetores([]);
+        return;
+    }
+    gerarGraficoDistribuicao(dadosRelatorioCacheados);
+    gerarComparativoSetores(dadosRelatorioCacheados);
 }
 
 /**
@@ -274,15 +451,16 @@ function gerarGraficoDistribuicao(dados) {
         setores[item.setor].push(item.consumo);
     });
 
-    // Preparar dados para o gráfico
-    const labels = Object.keys(setores);
-    const valoresTotais = labels.map(setor => {
-        return setores[setor].reduce((total, consumo) => total + consumo, 0);
-    });
+    if (setoresPreferencia.length === 0) {
+        setoresPreferencia = Object.keys(setores).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        participacoesSetor = criarDivisaoPadrao(dados, setoresPreferencia);
+        contaPreferenciaSetor = obterContaAtivaId();
+    }
 
-    const valoresMedios = labels.map(setor => {
-        return calcularMedia(setores[setor]);
-    });
+    const distribuicao = obterConsumoPersonalizado(dados);
+    const labels = distribuicao.map((item) => item.setor);
+    const valoresTotais = distribuicao.map((item) => item.total);
+    const valoresMedios = distribuicao.map((item) => item.media);
 
     // Cores eco-friendly para os setores
     const cores = {
@@ -451,27 +629,15 @@ function gerarComparativoSetores(dados) {
     const containerSetor = document.getElementById('setorComparativo');
     if (!containerSetor) return;
     
-    // Agrupar por setor
-    const setores = {};
-    dados.forEach(item => {
-        if (!setores[item.setor]) {
-            setores[item.setor] = [];
-        }
-        setores[item.setor].push(item.consumo);
-    });
-    
-    // Calcular consumo médio por setor
     containerSetor.innerHTML = '';
-    
-    for (let setor in setores) {
-        const consumos = setores[setor];
-        const media = calcularMedia(consumos);
-        const total = consumos.reduce((a, b) => a + b, 0);
-        
+    const distribuicao = obterConsumoPersonalizado(dados);
+
+    for (const itemDistribuicao of distribuicao) {
+        const { setor, media, total, percentual } = itemDistribuicao;
         const item = document.createElement('div');
         item.className = 'sector-item';
         item.innerHTML = `
-            <span class="sector-name">${setor}</span>
+            <span class="sector-name">${setor} <small>${percentual}%</small></span>
             <div style="text-align: right;">
                 <div class="sector-value">${media.toFixed(2)} kWh (média)</div>
                 <div style="font-size: 0.85rem; color: #95a5a6;">${total.toFixed(2)} kWh (total)</div>

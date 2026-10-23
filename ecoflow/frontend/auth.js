@@ -18,6 +18,18 @@
         return digits.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
     }
 
+    function getCaretPosition(value, digitCount) {
+        if (digitCount === 0) return 0;
+        let digitsFound = 0;
+        for (let index = 0; index < value.length; index += 1) {
+            if (/\d/.test(value[index])) {
+                digitsFound += 1;
+                if (digitsFound === digitCount) return index + 1;
+            }
+        }
+        return value.length;
+    }
+
     function hasRepeatedDigits(value) {
         return /^\d+$/.test(value) && /^(.)(\1)+$/.test(value);
     }
@@ -59,6 +71,7 @@
         appShell.setAttribute('aria-hidden', String(!isAuthenticated));
         document.body.classList.toggle('is-authenticated', isAuthenticated);
         if (isAuthenticated && name) document.getElementById('accountName').textContent = name;
+        window.dispatchEvent(new CustomEvent('ecoflow:account-changed'));
     }
 
     function readUsers() {
@@ -113,9 +126,11 @@
 
         try {
             const session = JSON.parse(sessionStorage.getItem('ecoflow.session') || 'null');
-            if (session && session.type && session.authenticated) {
+            if (session && session.type && session.document && session.authenticated) {
                 accountType = session.type;
                 setAuthenticated(true, session.type === 'empresa' ? 'Conta empresa' : 'Minha casa');
+            } else if (session) {
+                sessionStorage.removeItem('ecoflow.session');
             }
         } catch (error) {
             sessionStorage.removeItem('ecoflow.session');
@@ -137,9 +152,17 @@
         }));
 
         documentInput.addEventListener('input', () => {
-            const position = documentInput.selectionStart;
-            documentInput.value = formatDocument(documentInput.value, accountType);
-            documentInput.setSelectionRange(position, position);
+            const originalValue = documentInput.value;
+            const selectionStart = documentInput.selectionStart ?? originalValue.length;
+            const selectionEnd = documentInput.selectionEnd ?? selectionStart;
+            const digitsBeforeStart = onlyDigits(originalValue.slice(0, selectionStart)).length;
+            const digitsBeforeEnd = onlyDigits(originalValue.slice(0, selectionEnd)).length;
+            const formattedValue = formatDocument(originalValue, accountType);
+            documentInput.value = formattedValue;
+            documentInput.setSelectionRange(
+                getCaretPosition(formattedValue, digitsBeforeStart),
+                getCaretPosition(formattedValue, digitsBeforeEnd)
+            );
             setFieldError('documentInput', '');
         });
         passwordInput.addEventListener('input', () => setFieldError('passwordInput', ''));
@@ -190,7 +213,7 @@
                     return;
                 }
 
-                sessionStorage.setItem('ecoflow.session', JSON.stringify({ type: accountType, authenticated: true }));
+                sessionStorage.setItem('ecoflow.session', JSON.stringify({ type: accountType, document: documentValue, authenticated: true }));
                 setAuthenticated(true, accountType === 'empresa' ? 'Conta empresa' : 'Minha casa');
                 if (window.mostrarNotificacao) window.mostrarNotificacao('Acesso realizado com sucesso.', 'success');
             } catch (error) {

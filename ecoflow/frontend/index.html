@@ -71,10 +71,10 @@
                     <a class="button button-dark" href="#faturas">Adicionar fatura <span aria-hidden="true">＋</span></a>
                 </div>
                 <div class="dashboard-grid">
-                    <article class="metric-card metric-featured"><p class="metric-label">Consumo médio</p><p class="metric-value" id="mediaConsumo">0 kWh</p><p class="metric-description">Média dos registros disponíveis</p><span class="metric-symbol" aria-hidden="true">↗</span></article>
-                    <article class="metric-card"><p class="metric-label">Consumo mediano</p><p class="metric-value" id="medianaConsumo">0 kWh</p><p class="metric-description">Valor central dos registros</p></article>
-                    <article class="metric-card"><p class="metric-label">Consumo mais frequente</p><p class="metric-value" id="modaConsumo">0 kWh</p><p class="metric-description">Moda dos dados coletados</p></article>
-                    <article class="metric-card"><p class="metric-label">Total monitorado</p><p class="metric-value" id="totalConsumo">0 kWh</p><p class="metric-description">Registros disponíveis</p></article>
+                    <article class="metric-card metric-featured"><p class="metric-label">Consumo médio</p><p class="metric-value" id="mediaConsumo">0,00 kWh</p><p class="metric-description">Média das suas faturas</p><span class="metric-symbol" aria-hidden="true">↗</span></article>
+                    <article class="metric-card"><p class="metric-label">Consumo mediano</p><p class="metric-value" id="medianaConsumo">0,00 kWh</p><p class="metric-description">Valor central das suas faturas</p></article>
+                    <article class="metric-card"><p class="metric-label">Consumo mais frequente</p><p class="metric-value" id="modaConsumo">Sem moda</p><p class="metric-description">Moda do consumo cadastrado</p></article>
+                    <article class="metric-card"><p class="metric-label">Total monitorado</p><p class="metric-value" id="totalConsumo">0,00 kWh</p><p class="metric-description">Soma das suas faturas</p></article>
                 </div>
             </section>
 
@@ -121,6 +121,14 @@
 
             <section id="relatorios" class="section">
                 <div class="section-heading"><div><p class="eyebrow">TENDÊNCIAS E DISTRIBUIÇÃO</p><h2 class="section-title">Relatórios e análises</h2></div></div>
+                <div class="sector-settings" aria-labelledby="sectorSettingsTitle">
+                    <div class="sector-settings-heading">
+                        <div><h3 id="sectorSettingsTitle">Divisão personalizada</h3><p>Defina a participação de cada setor no consumo total.</p></div>
+                        <div class="percentage-total" id="sectorPercentageTotal" aria-live="polite">Total <strong>0%</strong></div>
+                    </div>
+                    <div class="sector-controls" id="sectorControls"></div>
+                    <p class="sector-settings-status" id="sectorSettingsStatus" aria-live="polite">A soma das participações deve ser exatamente 100%.</p>
+                </div>
                 <div class="charts-grid"><article class="card chart-card"><h3>Distribuição de consumo</h3><canvas id="chartConsumo"></canvas></article><article class="card chart-card"><h3>Comparativo por setor</h3><div id="setorComparativo" class="sector-list"></div></article></div>
             </section>
 
