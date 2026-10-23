@@ -6,6 +6,18 @@
 // Configuração de API
 const API_BASE_URL = 'http://localhost:5000/api';
 
+function mostrarNotificacao(mensagem, tipo = 'info') {
+    const region = document.getElementById('toastRegion');
+    if (!region) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.dataset.type = ['success', 'error', 'info'].includes(tipo) ? tipo : 'info';
+    toast.textContent = mensagem;
+    region.appendChild(toast);
+    window.setTimeout(() => toast.remove(), 5000);
+}
+
 // Dados em cache
 let dadosConsumoCacheado = [];
 
@@ -62,6 +74,7 @@ async function carregarDados() {
         console.error('✗ Erro ao carregar dados:', erro);
         // Usar dados demonstrativos se API falhar
         usarDadosDemonstrativos();
+        mostrarNotificacao('API indisponível. A dashboard está usando dados demonstrativos.', 'info');
     }
 }
 
@@ -250,7 +263,7 @@ function gerarRelatorios(dados) {
  */
 function gerarGraficoDistribuicao(dados) {
     const canvas = document.getElementById('chartConsumo');
-    if (!canvas) return;
+    if (!canvas || typeof Chart === 'undefined') return;
 
     // Agrupar dados por setor
     const setores = {};
@@ -483,33 +496,5 @@ function formatarData(dataString) {
  * Simula logout removendo dados da sessão
  */
 function logout() {
-    if (confirm('Tem certeza que deseja sair do sistema?')) {
-        // Limpar dados em cache
-        dadosConsumoCacheado = [];
-        
-        // Limpar interface
-        document.getElementById('mediaConsumo').textContent = '0 kWh';
-        document.getElementById('medianaConsumo').textContent = '0 kWh';
-        document.getElementById('modaConsumo').textContent = '0 kWh';
-        document.getElementById('totalConsumo').textContent = '0 kWh';
-        document.getElementById('tableBody').innerHTML = '';
-        
-        // Destruir gráfico se existir
-        if (window.graficoDistribuicao) {
-            window.graficoDistribuicao.destroy();
-            window.graficoDistribuicao = null;
-        }
-        
-        // Limpar comparativo
-        const containerSetor = document.getElementById('setorComparativo');
-        if (containerSetor) {
-            containerSetor.innerHTML = '<p style="text-align: center; color: #95a5a6; padding: 20px;">Faça login para visualizar os dados</p>';
-        }
-        
-        // Simular redirecionamento para login
-        mostrarNotificacao('Logout realizado com sucesso!', 'info');
-        
-        // Em produção, redirecionaria para página de login
-        // window.location.href = '/login.html';
-    }
+    if (window.EcoFlowAuth) window.EcoFlowAuth.logout();
 }

@@ -3,128 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="EcoFlow - Sistema de Monitoramento de Sustentabilidade">
-    <meta name="author" content="PIM I - Equipe EcoFlow">
-    <title>EcoFlow | Monitoramento de Sustentabilidade</title>
+    <meta name="description" content="EcoFlow - gestão de energia e sustentabilidade">
+    <title>EcoFlow | Energia em perspectiva</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <!-- Chart.js para gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <header class="header">
-        <nav class="navbar">
-            <div class="logo">
-                <span class="logo-icon">🌿</span>
-                <h1>EcoFlow</h1>
+    <section class="login-screen" id="loginScreen" aria-labelledby="loginTitle">
+        <div class="login-art" aria-hidden="true">
+            <div class="login-brand"><span class="brand-mark">e</span><span>EcoFlow</span></div>
+            <div class="login-art-copy">
+                <p class="eyebrow">ENERGIA, COM MAIS INTENÇÃO</p>
+                <h1>Consumo consciente começa com clareza.</h1>
+                <p>Acompanhe sua energia e transforme dados em escolhas melhores.</p>
+                <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
             </div>
-            <ul class="nav-links">
-                <li><a href="#dashboard" class="nav-link">Dashboard</a></li>
-                <li><a href="#consumo" class="nav-link">Consumo</a></li>
-                <li><a href="#relatorios" class="nav-link">Relatórios</a></li>
-                <li><a href="#sobre" class="nav-link">Sobre</a></li>
-            </ul>
-            <div class="user-area">
-                <div class="user-info">
-                    <span class="user-avatar">👤</span>
-                    <span class="user-name">Pedro Fornazari</span>
-                    <span class="user-role">Administrador</span>
+            <div class="login-art-foot">Energia de um futuro mais leve.</div>
+        </div>
+        <div class="login-panel">
+            <div class="login-panel-inner">
+                <p class="eyebrow">BEM-VINDO AO ECOFLOW</p>
+                <h2 id="loginTitle">Acesse sua conta</h2>
+                <p class="login-subtitle">Entre para visualizar seu panorama de energia.</p>
+                <div class="login-tabs" role="tablist" aria-label="Tipo de conta">
+                    <button class="login-tab is-active" type="button" role="tab" aria-selected="true" data-account="empresa">Empresa</button>
+                    <button class="login-tab" type="button" role="tab" aria-selected="false" data-account="casa">Casa</button>
                 </div>
-                <button class="btn btn-secondary btn-logout" onclick="logout()">
-                    <span class="logout-icon">🚪</span>
-                    Sair
-                </button>
+                <form id="loginForm" novalidate>
+                    <label class="field-label" id="documentLabel" for="documentInput">CNPJ</label>
+                    <input class="form-control" id="documentInput" name="document" type="text" inputmode="numeric" autocomplete="username" placeholder="00.000.000/0000-00" maxlength="18" required>
+                    <p class="field-error" id="documentError" aria-live="polite"></p>
+                    <label class="field-label" for="passwordInput">Senha</label>
+                    <input class="form-control" id="passwordInput" name="password" type="password" autocomplete="current-password" placeholder="Mínimo de 6 caracteres" minlength="6" required>
+                    <p class="field-error" id="passwordError" aria-live="polite"></p>
+                    <p class="demo-note" id="authNote">Acesso demonstrativo. Seus dados não são enviados a um serviço de autenticação.</p>
+                    <button class="button button-dark login-submit" type="submit">Entrar <span aria-hidden="true">→</span></button>
+                    <p class="auth-switch-copy"><span id="authSwitchPrompt">Ainda não tem uma conta?</span> <button class="auth-switch" id="authModeToggle" type="button">Criar conta</button></p>
+                </form>
             </div>
-        </nav>
-    </header>
+        </div>
+    </section>
 
-    <main class="container">
-        <!-- Seção Dashboard -->
-        <section id="dashboard" class="section">
-            <h2 class="section-title">Dashboard de Sustentabilidade</h2>
-            <div class="dashboard-grid">
-                <div class="card metric-card">
-                    <h3>Consumo Médio de Energia</h3>
-                    <p class="metric-value" id="mediaConsumo">0 kWh</p>
-                    <p class="metric-description">Média dos últimos 30 dias</p>
-                </div>
-                <div class="card metric-card">
-                    <h3>Consumo Mediano</h3>
-                    <p class="metric-value" id="medianaConsumo">0 kWh</p>
-                    <p class="metric-description">Valor central de distribuição</p>
-                </div>
-                <div class="card metric-card">
-                    <h3>Consumo Mais Frequente</h3>
-                    <p class="metric-value" id="modaConsumo">0 kWh</p>
-                    <p class="metric-description">Moda dos dados coletados</p>
-                </div>
-                <div class="card metric-card">
-                    <h3>Total Monitorado</h3>
-                    <p class="metric-value" id="totalConsumo">0 kWh</p>
-                    <p class="metric-description">Período de 30 dias</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Seção Consumo -->
-        <section id="consumo" class="section">
-            <h2 class="section-title">Dados de Consumo</h2>
-            <div class="filters">
-                <input type="text" id="filterInput" class="input-field" placeholder="Buscar por setor...">
-                <button class="btn btn-primary" onclick="carregarDados()">Carregar Dados</button>
-            </div>
-            <div class="table-responsive">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Setor</th>
-                            <th>Data</th>
-                            <th>Consumo (kWh)</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        <!-- Dados carregados via JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Seção Relatórios -->
-        <section id="relatorios" class="section">
-            <h2 class="section-title">Relatórios e Análises</h2>
-            <div class="charts-grid">
-                <div class="card chart-card">
-                    <h3>Distribuição de Consumo</h3>
-                    <canvas id="chartConsumo"></canvas>
-                </div>
-                <div class="card chart-card">
-                    <h3>Comparativo por Setor</h3>
-                    <div id="setorComparativo" class="sector-list"></div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Seção Sobre -->
-        <section id="sobre" class="section">
-            <h2 class="section-title">Sobre o Projeto</h2>
-            <div class="about-content">
-                <p><strong>EcoFlow</strong> é uma solução integrada para monitoramento e otimização do consumo de recursos (energia, água, resíduos) em organizações.</p>
-                <h3>Objetivos de Desenvolvimento Sustentável (ODS)</h3>
-                <ul>
-                    <li><strong>ODS 7:</strong> Energia Limpa e Acessível</li>
-                    <li><strong>ODS 9:</strong> Indústria, Inovação e Infraestrutura</li>
-                    <li><strong>ODS 12:</strong> Consumo e Produção Responsáveis</li>
+    <div id="appShell" class="app-shell" aria-hidden="true">
+        <header class="header">
+            <nav class="navbar" aria-label="Navegação principal">
+                <a class="logo" href="#dashboard" aria-label="EcoFlow, início"><span class="brand-mark">e</span><span>EcoFlow</span></a>
+                <ul class="nav-links">
+                    <li><a href="#dashboard" class="nav-link">Visão geral</a></li>
+                    <li><a href="#faturas" class="nav-link">Faturas</a></li>
+                    <li><a href="#consumo" class="nav-link">Consumo</a></li>
+                    <li><a href="#relatorios" class="nav-link">Relatórios</a></li>
                 </ul>
-                <h3>Conformidade</h3>
-                <p>Sistema desenvolvido em conformidade com a Lei Geral de Proteção de Dados (LGPD - Lei nº 13.709/2018).</p>
-            </div>
-        </section>
-    </main>
+                <div class="user-area">
+                    <div class="user-info"><span class="user-avatar" aria-hidden="true">◎</span><span class="user-name" id="accountName">Minha conta</span></div>
+                    <button class="button button-outline btn-logout" type="button" onclick="logout()" aria-label="Sair da conta">Sair</button>
+                </div>
+            </nav>
+        </header>
 
-    <footer class="footer">
-        <p>&copy; 2026 EcoFlow - PIM I. Todos os direitos reservados.</p>
-    </footer>
+        <main class="container">
+            <section id="dashboard" class="section dashboard-intro">
+                <div class="page-heading">
+                    <div><p class="eyebrow">SEU PANORAMA DE ENERGIA</p><h1>Visão geral</h1><p class="page-subtitle">Uma leitura simples do que sua energia conta.</p></div>
+                    <a class="button button-dark" href="#faturas">Adicionar fatura <span aria-hidden="true">＋</span></a>
+                </div>
+                <div class="dashboard-grid">
+                    <article class="metric-card metric-featured"><p class="metric-label">Consumo médio</p><p class="metric-value" id="mediaConsumo">0 kWh</p><p class="metric-description">Média dos registros disponíveis</p><span class="metric-symbol" aria-hidden="true">↗</span></article>
+                    <article class="metric-card"><p class="metric-label">Consumo mediano</p><p class="metric-value" id="medianaConsumo">0 kWh</p><p class="metric-description">Valor central dos registros</p></article>
+                    <article class="metric-card"><p class="metric-label">Consumo mais frequente</p><p class="metric-value" id="modaConsumo">0 kWh</p><p class="metric-description">Moda dos dados coletados</p></article>
+                    <article class="metric-card"><p class="metric-label">Total monitorado</p><p class="metric-value" id="totalConsumo">0 kWh</p><p class="metric-description">Registros disponíveis</p></article>
+                </div>
+            </section>
 
-    <script src="script.js"></script>
+            <section class="section savings-section" aria-labelledby="savingsTitle">
+                <div class="savings-copy"><p class="eyebrow">POTENCIAL DE ECONOMIA</p><h2 id="savingsTitle">Pequenas mudanças, impacto real.</h2><p>Estimativa baseada na sua fatura mais recente. Ajuste a meta para explorar cenários.</p>
+                    <label class="range-label" for="reductionTarget">Meta de redução <output id="reductionValue" for="reductionTarget">15%</output></label>
+                    <input id="reductionTarget" class="reduction-range" type="range" min="5" max="30" step="1" value="15" aria-label="Meta percentual de redução do consumo">
+                </div>
+                <div class="savings-metrics" aria-live="polite">
+                    <div><span>Energia economizada</span><strong id="savedKwh">-- kWh</strong></div>
+                    <div><span>Redução estimada</span><strong id="savedMoney">--</strong></div>
+                    <div><span>CO₂ evitado</span><strong id="savedCo2">-- kg</strong></div>
+                    <p class="savings-footnote" id="savingsFootnote">Cadastre uma fatura para estimar sua economia.</p>
+                </div>
+            </section>
+
+            <section id="faturas" class="section bill-section">
+                <div class="section-heading"><div><p class="eyebrow">HISTÓRICO DE ENERGIA</p><h2 class="section-title">Cadastrar conta de luz</h2></div></div>
+                <div class="bill-layout">
+                    <form id="billForm" class="bill-form" novalidate>
+                        <div class="form-grid">
+                            <div class="form-group"><label class="field-label" for="billMonth">Mês/Ano</label><input class="form-control" id="billMonth" name="month" type="month" required></div>
+                            <div class="form-group"><label class="field-label" for="billConsumption">Consumo (kWh)</label><input class="form-control" id="billConsumption" name="consumption" type="number" min="0.1" step="0.1" placeholder="Ex.: 245,8" required></div>
+                            <div class="form-group"><label class="field-label" for="billAmount">Valor (R$)</label><input class="form-control" id="billAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="Ex.: 198,40" required></div>
+                        </div>
+                        <div class="upload-zone" id="uploadZone">
+                            <label class="upload-label" for="billFile"><span class="upload-icon" aria-hidden="true">↑</span><span><strong>Adicionar arquivo da fatura</strong><small>PDF, PNG ou JPG, até 10 MB</small></span><span class="button button-outline upload-button">Selecionar arquivo</span></label>
+                            <input id="billFile" name="file" type="file" accept="application/pdf,image/png,image/jpeg" class="visually-hidden">
+                            <p class="file-status" id="fileStatus" aria-live="polite">Nenhum arquivo selecionado</p>
+                            <p class="ocr-status" id="ocrStatus" aria-live="polite"></p>
+                        </div>
+                        <p class="demo-note">Leitura automática simulada para demonstração. Confira os dados antes de salvar.</p>
+                        <button class="button button-dark" type="submit">Salvar fatura <span aria-hidden="true">→</span></button>
+                    </form>
+                    <aside class="bill-history"><div class="history-heading"><h3>Faturas recentes</h3><span id="billCount">0</span></div><div id="billList" class="bill-list"><p class="empty-state">Suas faturas salvas aparecerão aqui.</p></div></aside>
+                </div>
+            </section>
+
+            <section id="consumo" class="section">
+                <div class="section-heading"><div><p class="eyebrow">DADOS COLETADOS</p><h2 class="section-title">Consumo por setor</h2></div></div>
+                <div class="filters"><input type="search" id="filterInput" class="input-field" placeholder="Buscar por setor..." aria-label="Buscar consumo por setor"><button class="button button-outline" type="button" onclick="carregarDados()">Atualizar dados</button></div>
+                <div class="table-responsive"><table class="data-table"><thead><tr><th>Setor</th><th>Data</th><th>Consumo (kWh)</th><th>Status</th></tr></thead><tbody id="tableBody"></tbody></table></div>
+            </section>
+
+            <section id="relatorios" class="section">
+                <div class="section-heading"><div><p class="eyebrow">TENDÊNCIAS E DISTRIBUIÇÃO</p><h2 class="section-title">Relatórios e análises</h2></div></div>
+                <div class="charts-grid"><article class="card chart-card"><h3>Distribuição de consumo</h3><canvas id="chartConsumo"></canvas></article><article class="card chart-card"><h3>Comparativo por setor</h3><div id="setorComparativo" class="sector-list"></div></article></div>
+            </section>
+
+            <section id="sobre" class="section about-section"><p class="eyebrow">SOBRE O ECOFLOW</p><p>Dados para escolhas melhores: energia limpa, inovação e consumo responsável.</p></section>
+        </main>
+        <footer class="footer"><p>&copy; 2026 EcoFlow</p></footer>
+    </div>
+
+    <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <section class="chat-widget" aria-label="Assistente de energia sustentável">
+        <div class="chat-panel" id="chatPanel" hidden>
+            <div class="chat-header"><div><strong>EcoAssistente</strong><span>Energia sustentável</span></div><button class="icon-button" id="chatClose" type="button" aria-label="Fechar chat">×</button></div>
+            <div class="chat-messages" id="chatMessages" role="log" aria-live="polite"><div class="chat-bubble bot-message">Olá! Posso ajudar com dúvidas sobre energia sustentável. O que você gostaria de saber?</div></div>
+            <div class="faq-questions" id="faqQuestions"><button type="button" data-question="Como reduzir minha conta de luz?">Reduzir a conta</button><button type="button" data-question="O que é energia solar?">Energia solar</button><button type="button" data-question="Como funciona a compensação de energia?">Compensação</button></div>
+            <form class="chat-form" id="chatForm"><label class="visually-hidden" for="chatInput">Sua pergunta</label><input id="chatInput" type="text" placeholder="Escreva sua pergunta..." maxlength="300" autocomplete="off" required><button type="submit" aria-label="Enviar mensagem">↑</button></form>
+        </div>
+        <button class="chat-launcher" id="chatLauncher" type="button" aria-expanded="false" aria-controls="chatPanel"><span aria-hidden="true">✳</span><span class="launcher-label">Pergunte ao EcoFlow</span></button>
+    </section>
+
+    <script src="script.js" defer></script>
+    <script src="auth.js" defer></script>
+    <script src="bills.js" defer></script>
+    <script src="chat.js" defer></script>
 </body>
 </html>

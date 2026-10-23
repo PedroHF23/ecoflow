@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using EcoFlow.Data;
 using EcoFlow.Services;
 
-var builder = WebApplicationBuilder.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 // ============ CONFIGURAÇÃO DE SERVIÇOS ============
 
